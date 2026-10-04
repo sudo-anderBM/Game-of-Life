@@ -3,7 +3,8 @@
   main.cpp
   Conway's Game of Life usando raylib.
   Cada generacion del tablero se guarda en un nodo de una lista
-  doblemente ligada. Permite navegar manualmente entre generaciones.
+  doblemente ligada. Permite navegar manualmente entre generaciones,
+  y tambien reproducir automaticamente con pausa y control de velocidad.
 */
 //******************************************************************************
 #include "raylib.h"
@@ -31,6 +32,7 @@ struct EstadoTablero
 {
     bool celdas[ROWS * COLS];   // snapshot completo de esta generacion (4800 celdas)
     int numeroEstado;           // numero de generacion (1, 2, 3, ...)
+    int poblacion;               // cuantas celdas vivas tiene esta generacion
 };
 
 
@@ -52,7 +54,8 @@ int main(void)
     const int altoVentana  = ROWS * CELL_SIZE;
 
     InitWindow(anchoVentana, altoVentana, "Conway's Game of Life - Lista Doblemente Ligada");
-    SetTargetFPS(15);
+    SetTargetFPS(60);   // 60 fps para que los controles se sientan fluidos
+                          // (la velocidad de la simulacion ya no depende de esto)
 
     // Configura el motor de numeros pseudoaleatorios
     std::random_device rd;
@@ -79,11 +82,18 @@ int main(void)
         EstadoTablero estado;
         estado.numeroEstado = i + 1;
 
-        // copia el tablero actual dentro del nodo que vamos a guardar
+        // copia el tablero actual dentro del nodo, y de paso cuenta
+        // cuantas celdas estan vivas en esta generacion
+        int vivasContadas = 0;
         for (int k = 0; k < ROWS * COLS; k++)
         {
             estado.celdas[k] = estadoActual[k];
+            if (estadoActual[k])
+            {
+                vivasContadas++;
+            }
         }
+        estado.poblacion = vivasContadas;
 
         if (lista.insertaFinal(estado))
         {
@@ -94,13 +104,62 @@ int main(void)
         gameLifeConway(estadoActual, dummy, ROWS, COLS);
     }
 
+    // ------------------------------------------------------------
+    // PANTALLA DE INSTRUCCIONES (antes de iniciar la animacion)
+    // ------------------------------------------------------------
+
+    while (!WindowShouldClose())
+    {
+        if (IsKeyPressed(KEY_ENTER))
+        {
+            break;   // sale de la pantalla de instrucciones y arranca la simulacion
+        }
+
+        BeginDrawing();
+
+            ClearBackground(RAYWHITE);
+
+            DrawText("CONWAY'S GAME OF LIFE", 190, 180, 30, BLACK);
+            DrawText("Lista doblemente ligada - 100 generaciones precalculadas", 130, 230, 16, DARKGRAY);
+
+            DrawText("Controles:", 190, 290, 20, BLACK);
+            DrawText("Flecha derecha / izquierda  ->  avanzar / retroceder generacion", 190, 320, 16, DARKGRAY);
+            DrawText("ESPACIO                      ->  play / pausa (automatico)", 190, 342, 16, DARKGRAY);
+            DrawText("+ / -                        ->  mas rapido / mas lento", 190, 364, 16, DARKGRAY);
+            DrawText("ESC                          ->  salir", 190, 386, 16, DARKGRAY);
+
+            DrawText("Presiona ENTER para comenzar", 220, 440, 20, MAROON);
+
+        EndDrawing();
+    }
+
+    // ------------------------------------------------------------
+    // VARIABLES PARA LA SIMULACION PRINCIPAL
+    // ------------------------------------------------------------
+
     // Puntero que indica en que generacion estamos parados
     Node<EstadoTablero>* actual = lista.Inicio();
 
     // Bandera para saber si el usuario ya uso la navegacion manual
     bool modoManual = false;
 
-    // Loop principal: se repite mientras la ventana no se cierre
+    // Bandera de reproduccion automatica (arranca en pausa)
+    bool pausado = true;
+
+    // Controla que tan rapido avanza solo (en segundos por generacion)
+    // mas chico = mas rapido
+    float velocidad = 0.3f;
+    const float velocidadMin = 0.05f;   // limite: lo mas rapido que puede ir
+    const float velocidadMax = 1.5f;    // limite: lo mas lento que puede ir
+
+    // Acumula el tiempo transcurrido entre frames, para saber cuando
+    // ya toca avanzar a la siguiente generacion automaticamente
+    float tiempoAcumulado = 0.0f;
+
+    // ------------------------------------------------------------
+    // LOOP PRINCIPAL
+    // ------------------------------------------------------------
+
     while (!WindowShouldClose())
     {
         // ------------------------------------------------------------
@@ -126,6 +185,53 @@ int main(void)
             if (actual->prev != nullptr)
             {
                 actual = actual->prev;
+            }
+        }
+
+        // Espacio: pausa o reanuda la reproduccion automatica
+        if (IsKeyPressed(KEY_SPACE))
+        {
+            pausado = !pausado;
+        }
+
+        // Tecla + (o el signo =, que comparte tecla en muchos teclados):
+        // aumenta la velocidad (reduce el tiempo de espera entre generaciones)
+        if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD))
+        {
+            velocidad -= 0.05f;
+            if (velocidad < velocidadMin)
+            {
+                velocidad = velocidadMin;
+            }
+        }
+
+        // Tecla -: disminuye la velocidad
+        if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))
+        {
+            velocidad += 0.05f;
+            if (velocidad > velocidadMax)
+            {
+                velocidad = velocidadMax;
+            }
+        }
+
+        // Si no esta pausado, avanza automaticamente segun la velocidad
+        if (!pausado)
+        {
+            tiempoAcumulado += GetFrameTime();
+
+            if (tiempoAcumulado >= velocidad)
+            {
+                tiempoAcumulado = 0.0f;
+
+                if (actual->next != nullptr)
+                {
+                    actual = actual->next;
+                }
+                else
+                {
+                    pausado = true;   // llego al final, se pausa solo
+                }
             }
         }
 
@@ -156,21 +262,34 @@ int main(void)
 
             // Panel oscuro semitransparente detras del texto, para que
             // siempre se lea bien sin importar que celdas haya debajo
-            DrawRectangle(0, 0, 340, 120, Fade(BLACK, 0.80f));
+            DrawRectangle(0, 0, 340, 160, Fade(BLACK, 0.80f));
 
             // Texto con el numero de generacion actual (de 100)
             DrawText(TextFormat("Generacion: %d / 100", actual->data.numeroEstado),
                       10, 10, 20, YELLOW);
 
-            // Instrucciones de uso, siempre visibles
-            DrawText("Flecha derecha: siguiente generacion", 10, 40, 16, RAYWHITE);
-            DrawText("Flecha izquierda: generacion anterior", 10, 58, 16, RAYWHITE);
-            DrawText("ESC: salir", 10, 76, 16, RAYWHITE);
+            // Contador de poblacion (celdas vivas en esta generacion)
+            DrawText(TextFormat("Poblacion: %d celdas vivas", actual->data.poblacion),
+                      10, 36, 16, GREEN);
 
-            // Indicador de modo (aparece solo despues de usar las flechas)
+            // Estado de reproduccion (play / pausa) y velocidad actual
+            if (pausado)
+            {
+                DrawText("PAUSADO", 10, 58, 16, (Color){255, 120, 120, 255});
+            }
+            else
+            {
+                DrawText(TextFormat("REPRODUCIENDO (%.2fs/gen)", velocidad), 10, 58, 16, LIME);
+            }
+
+            // Instrucciones de uso, siempre visibles
+            DrawText("Flechas: navegar manual  |  ESPACIO: play/pausa", 10, 84, 14, RAYWHITE);
+            DrawText("+ / - : velocidad  |  ESC: salir", 10, 100, 14, RAYWHITE);
+
+            // Indicador de modo manual (aparece solo despues de usar las flechas)
             if (modoManual)
             {
-                DrawText("Modo manual activo", 10, 96, 16, (Color){255, 120, 120, 255});
+                DrawText("Modo manual usado", 10, 124, 14, (Color){255, 200, 120, 255});
             }
 
         EndDrawing();
