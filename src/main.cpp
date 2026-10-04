@@ -17,6 +17,7 @@
 #include <ctime>
 #include <iostream>
 #include <random>
+#include <cmath>
 
 
 //******************************************************************************
@@ -71,7 +72,7 @@ int main(void)
     const int anchoVentana = COLS * CELL_SIZE;
     const int altoVentana  = ROWS * CELL_SIZE;
 
-    InitWindow(anchoVentana, altoVentana, "Conway's Game of Life — Lista Doblemente Ligada");
+    InitWindow(anchoVentana, altoVentana, "Conway's Game of Life - Lista Doblemente Ligada");
     SetTargetFPS(60);
 
     // ------------------------------------------------------------
@@ -127,8 +128,12 @@ int main(void)
     }
 
     // ------------------------------------------------------------
-    // PANTALLA DE INSTRUCCIONES — estilo portada sobria
+    // PANTALLA DE INSTRUCCIONES — estilo portada sobria, con
+    // fondo de puntos animados tipo campo de onda (sin/cos)
     // ------------------------------------------------------------
+
+    // separacion de la rejilla de puntos del fondo de la portada
+    const int PUNTO_SEP = 28;
 
     while (!WindowShouldClose())
     {
@@ -139,25 +144,42 @@ int main(void)
             break;
         }
 
+        float t = (float)GetTime();   // tiempo transcurrido, para animar
+
         BeginDrawing();
 
             ClearBackground(COLOR_FONDO);
 
-            // marco delgado alrededor de toda la ventana
-            DrawRectangleLines(0, 0, anchoVentana, altoVentana, COLOR_LINEA);
+            // ---------- fondo animado: campo de puntos tipo onda ----------
+            // cada punto cambia de tamaño/opacidad siguiendo una funcion
+            // seno que depende de su posicion y del tiempo -> efecto de
+            // onda viajando por la pantalla, muy sutil, sin distraer
+            for (int px = 0; px < anchoVentana; px += PUNTO_SEP)
+            {
+                for (int py = 0; py < altoVentana; py += PUNTO_SEP)
+                {
+                    float fase = sinf(px * 0.04f + py * 0.04f + t * 1.2f);
+                    float intensidad = (fase + 1.0f) / 2.0f;   // normaliza a [0,1]
 
-            // titulo centrado
+                    // radio y opacidad muy chicos, para que quede discreto
+                    float radio = 1.0f + intensidad * 1.6f;
+                    unsigned char alpha = (unsigned char)(18 + intensidad * 28);
+
+                    DrawCircle(px, py, radio, Fade(COLOR_ACENTO, alpha / 255.0f));
+                }
+            }
+
+            // ---------- contenido de la portada, encima del fondo ----------
+
             int tituloAncho = MeasureText("CONWAY'S GAME OF LIFE", 28);
             DrawText("CONWAY'S GAME OF LIFE", (anchoVentana - tituloAncho) / 2, 150, 28, COLOR_TEXTO);
 
-            int subAncho = MeasureText("Simulacion con lista doblemente ligada  —  C++ / raylib", 14);
-            DrawText("Simulacion con lista doblemente ligada  —  C++ / raylib",
+            int subAncho = MeasureText("Simulacion con lista doblemente ligada  -  C++ / raylib", 14);
+            DrawText("Simulacion con lista doblemente ligada  -  C++ / raylib",
                       (anchoVentana - subAncho) / 2, 188, 14, COLOR_TEXTO_SUAVE);
 
-            // linea separadora fina
             DrawLine(anchoVentana / 2 - 80, 220, anchoVentana / 2 + 80, 220, COLOR_LINEA);
 
-            // bloque de controles, alineado en columna
             int xControles = anchoVentana / 2 - 170;
             int yControles = 250;
             int paso = 24;
@@ -174,8 +196,13 @@ int main(void)
             DrawText("Esc                            salir",
                       xControles, yControles + paso * 5, 14, COLOR_TEXTO);
 
+            // "ENTER para comenzar" con un parpadeo suave (tambien con seno)
+            float parpadeo = (sinf(t * 3.0f) + 1.0f) / 2.0f;   // va de 0 a 1
+            unsigned char alphaEnter = (unsigned char)(140 + parpadeo * 115);
+
             int enterAncho = MeasureText("ENTER para comenzar", 16);
-            DrawText("ENTER para comenzar", (anchoVentana - enterAncho) / 2, 420, 16, COLOR_ACENTO);
+            DrawText("ENTER para comenzar", (anchoVentana - enterAncho) / 2, 420, 16,
+                       Fade(COLOR_ACENTO, alphaEnter / 255.0f));
 
         EndDrawing();
     }
@@ -314,7 +341,7 @@ int main(void)
             }
             else
             {
-                DrawText("—", 516, 26, 16, COLOR_TEXTO_SUAVE);
+                DrawText("-", 516, 26, 16, COLOR_TEXTO_SUAVE);
             }
 
             DrawLine(630, 12, 630, 52, COLOR_LINEA);
@@ -333,7 +360,7 @@ int main(void)
             DrawRectangle(0, altoVentana - FOOTER_HEIGHT, anchoVentana, FOOTER_HEIGHT, COLOR_FONDO);
             DrawLine(0, altoVentana - FOOTER_HEIGHT, anchoVentana, altoVentana - FOOTER_HEIGHT, COLOR_LINEA);
 
-            const char* pie = "Fig. 1 — Automata celular B3/S23 sobre malla toroidal 80 x 60";
+            const char* pie = "Fig. 1 - Automata celular B3/S23 sobre malla toroidal 80 x 60";
             DrawText(pie, 12, altoVentana - FOOTER_HEIGHT + 5, 12, COLOR_TEXTO_SUAVE);
 
         EndDrawing();
