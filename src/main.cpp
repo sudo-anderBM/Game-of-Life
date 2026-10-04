@@ -5,6 +5,7 @@
   Cada generacion del tablero se guarda en un nodo de una lista
   doblemente ligada. Permite navegar manualmente entre generaciones,
   y tambien reproducir automaticamente con pausa y control de velocidad.
+  Incluye musica de fondo en loop.
 */
 //******************************************************************************
 #include "raylib.h"
@@ -55,7 +56,18 @@ int main(void)
 
     InitWindow(anchoVentana, altoVentana, "Conway's Game of Life - Lista Doblemente Ligada");
     SetTargetFPS(60);   // 60 fps para que los controles se sientan fluidos
-                          // (la velocidad de la simulacion ya no depende de esto)
+
+    // ------------------------------------------------------------
+    // AUDIO
+    // ------------------------------------------------------------
+
+    InitAudioDevice();   // prende el sistema de audio, una sola vez
+
+    Music musica = LoadMusicStream("assets/musica.ogg");
+    musica.looping = true;   // que se repita sola al terminar
+    PlayMusicStream(musica);
+
+    bool musicaActiva = true;   // bandera para poder silenciarla con una tecla
 
     // Configura el motor de numeros pseudoaleatorios
     std::random_device rd;
@@ -82,8 +94,6 @@ int main(void)
         EstadoTablero estado;
         estado.numeroEstado = i + 1;
 
-        // copia el tablero actual dentro del nodo, y de paso cuenta
-        // cuantas celdas estan vivas en esta generacion
         int vivasContadas = 0;
         for (int k = 0; k < ROWS * COLS; k++)
         {
@@ -100,7 +110,6 @@ int main(void)
             std::cout << "Error al insertar la generacion " << (i + 1) << std::endl;
         }
 
-        // calcula la siguiente generacion para la proxima vuelta del ciclo
         gameLifeConway(estadoActual, dummy, ROWS, COLS);
     }
 
@@ -110,9 +119,11 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        UpdateMusicStream(musica);   // hay que llamarlo cada frame, siempre
+
         if (IsKeyPressed(KEY_ENTER))
         {
-            break;   // sale de la pantalla de instrucciones y arranca la simulacion
+            break;
         }
 
         BeginDrawing();
@@ -126,9 +137,10 @@ int main(void)
             DrawText("Flecha derecha / izquierda  ->  avanzar / retroceder generacion", 190, 320, 16, DARKGRAY);
             DrawText("ESPACIO                      ->  play / pausa (automatico)", 190, 342, 16, DARKGRAY);
             DrawText("+ / -                        ->  mas rapido / mas lento", 190, 364, 16, DARKGRAY);
-            DrawText("ESC                          ->  salir", 190, 386, 16, DARKGRAY);
+            DrawText("M                            ->  silenciar / activar musica", 190, 386, 16, DARKGRAY);
+            DrawText("ESC                          ->  salir", 190, 408, 16, DARKGRAY);
 
-            DrawText("Presiona ENTER para comenzar", 220, 440, 20, MAROON);
+            DrawText("Presiona ENTER para comenzar", 220, 460, 20, MAROON);
 
         EndDrawing();
     }
@@ -137,23 +149,14 @@ int main(void)
     // VARIABLES PARA LA SIMULACION PRINCIPAL
     // ------------------------------------------------------------
 
-    // Puntero que indica en que generacion estamos parados
     Node<EstadoTablero>* actual = lista.Inicio();
 
-    // Bandera para saber si el usuario ya uso la navegacion manual
-    bool modoManual = false;
-
-    // Bandera de reproduccion automatica (arranca en pausa)
     bool pausado = true;
 
-    // Controla que tan rapido avanza solo (en segundos por generacion)
-    // mas chico = mas rapido
     float velocidad = 0.3f;
-    const float velocidadMin = 0.05f;   // limite: lo mas rapido que puede ir
-    const float velocidadMax = 1.5f;    // limite: lo mas lento que puede ir
+    const float velocidadMin = 0.05f;
+    const float velocidadMax = 1.5f;
 
-    // Acumula el tiempo transcurrido entre frames, para saber cuando
-    // ya toca avanzar a la siguiente generacion automaticamente
     float tiempoAcumulado = 0.0f;
 
     // ------------------------------------------------------------
@@ -162,40 +165,34 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        // La musica necesita actualizarse cada frame para seguir sonando
+        UpdateMusicStream(musica);
+
         // ------------------------------------------------------------
-        // ACTUALIZACION (logica del programa, antes de dibujar)
+        // ACTUALIZACION
         // ------------------------------------------------------------
 
-        // Flecha derecha: avanza a la siguiente generacion (si existe)
         if (IsKeyPressed(KEY_RIGHT))
         {
-            modoManual = true;
-
             if (actual->next != nullptr)
             {
                 actual = actual->next;
             }
         }
 
-        // Flecha izquierda: retrocede a la generacion anterior (si existe)
         if (IsKeyPressed(KEY_LEFT))
         {
-            modoManual = true;
-
             if (actual->prev != nullptr)
             {
                 actual = actual->prev;
             }
         }
 
-        // Espacio: pausa o reanuda la reproduccion automatica
         if (IsKeyPressed(KEY_SPACE))
         {
             pausado = !pausado;
         }
 
-        // Tecla + (o el signo =, que comparte tecla en muchos teclados):
-        // aumenta la velocidad (reduce el tiempo de espera entre generaciones)
         if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD))
         {
             velocidad -= 0.05f;
@@ -205,7 +202,6 @@ int main(void)
             }
         }
 
-        // Tecla -: disminuye la velocidad
         if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))
         {
             velocidad += 0.05f;
@@ -215,7 +211,21 @@ int main(void)
             }
         }
 
-        // Si no esta pausado, avanza automaticamente segun la velocidad
+        // Tecla M: silencia o reactiva la musica
+        if (IsKeyPressed(KEY_M))
+        {
+            musicaActiva = !musicaActiva;
+
+            if (musicaActiva)
+            {
+                ResumeMusicStream(musica);
+            }
+            else
+            {
+                PauseMusicStream(musica);
+            }
+        }
+
         if (!pausado)
         {
             tiempoAcumulado += GetFrameTime();
@@ -230,7 +240,7 @@ int main(void)
                 }
                 else
                 {
-                    pausado = true;   // llego al final, se pausa solo
+                    pausado = true;
                 }
             }
         }
@@ -241,64 +251,56 @@ int main(void)
 
         BeginDrawing();
 
-            // Fondo blanco
             ClearBackground(RAYWHITE);
 
-            // Dibuja cada celda del tablero guardado en el nodo actual
             for (int r = 0; r < ROWS; ++r)
             {
                 for (int c = 0; c < COLS; ++c)
                 {
                     if (actual->data.celdas[r * COLS + c])
                     {
-                        // celda viva: negro solido (contrasta contra el fondo blanco)
                         DrawRectangle(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE, BLACK);
                     }
 
-                    // lineas de la cuadricula, discretas sobre fondo blanco
                     DrawRectangleLines(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE, LIGHTGRAY);
                 }
             }
 
-            // Panel oscuro semitransparente detras del texto, para que
-            // siempre se lea bien sin importar que celdas haya debajo
-            DrawRectangle(0, 0, 340, 160, Fade(BLACK, 0.80f));
+            DrawRectangle(0, 0, anchoVentana, 70, Fade(BLACK, 0.82f));
 
-            // Texto con el numero de generacion actual (de 100)
-            DrawText(TextFormat("Generacion: %d / 100", actual->data.numeroEstado),
-                      10, 10, 20, YELLOW);
+            DrawText(TextFormat("Gen %d/100", actual->data.numeroEstado),
+                      12, 10, 24, RAYWHITE);
 
-            // Contador de poblacion (celdas vivas en esta generacion)
-            DrawText(TextFormat("Poblacion: %d celdas vivas", actual->data.poblacion),
-                      10, 36, 16, GREEN);
+            DrawText(TextFormat("Poblacion: %d", actual->data.poblacion),
+                      170, 16, 18, (Color){120, 220, 120, 255});
 
-            // Estado de reproduccion (play / pausa) y velocidad actual
-            if (pausado)
+            const char* estadoTexto = pausado ? "|| PAUSADO" : "> REPRODUCIENDO";
+            Color colorEstado = pausado ? (Color){255, 140, 140, 255} : (Color){140, 200, 255, 255};
+            DrawText(estadoTexto, 360, 16, 18, colorEstado);
+
+            if (!pausado)
             {
-                DrawText("PAUSADO", 10, 58, 16, (Color){255, 120, 120, 255});
-            }
-            else
-            {
-                DrawText(TextFormat("REPRODUCIENDO (%.2fs/gen)", velocidad), 10, 58, 16, LIME);
+                DrawText(TextFormat("(%.2fs/gen)", velocidad), 560, 16, 16, GRAY);
             }
 
-            // Instrucciones de uso, siempre visibles
-            DrawText("Flechas: navegar manual  |  ESPACIO: play/pausa", 10, 84, 14, RAYWHITE);
-            DrawText("+ / - : velocidad  |  ESC: salir", 10, 100, 14, RAYWHITE);
+            const char* iconoMusica = musicaActiva ? "[M] musica ON" : "[M] musica OFF";
+            DrawText(iconoMusica, 660, 16, 14, (Color){200, 200, 255, 255});
 
-            // Indicador de modo manual (aparece solo despues de usar las flechas)
-            if (modoManual)
-            {
-                DrawText("Modo manual usado", 10, 124, 14, (Color){255, 200, 120, 255});
-            }
+            DrawText("FLECHAS navegar   ESPACIO play/pausa   +/- velocidad   ESC salir",
+                      12, 44, 14, (Color){170, 170, 170, 255});
 
         EndDrawing();
     }
 
-    // Libera la memoria de la lista antes de cerrar
+    // ------------------------------------------------------------
+    // LIMPIEZA
+    // ------------------------------------------------------------
+
     lista.eliminarLista();
 
-    // Cierra la ventana y libera recursos de raylib
+    UnloadMusicStream(musica);
+    CloseAudioDevice();
+
     CloseWindow();
 
     return 0;
@@ -307,8 +309,6 @@ int main(void)
 
 //******************************************************************************
 //    Aplica las reglas de Conway's Game of Life sobre el tablero
-//    estado: tablero actual (se actualiza al final de la funcion)
-//    dummy:  tablero temporal donde se calcula la siguiente generacion
 //******************************************************************************
 
 void gameLifeConway(bool estado[], bool dummy[], int rows, int cols)
@@ -317,20 +317,17 @@ void gameLifeConway(bool estado[], bool dummy[], int rows, int cols)
     {
         for (int c = 0; c < cols; ++c)
         {
-            // cuenta vecinos vivos de la celda (r,c)
             int vecinos = 0;
 
             for (int y = -1; y <= 1; ++y)
             {
                 for (int x = -1; x <= 1; ++x)
                 {
-                    // la celda central no cuenta como su propio vecino
                     if (y == 0 && x == 0)
                     {
                         continue;
                     }
 
-                    // bordes periodicos (el tablero se "envuelve" como un toroide)
                     int dx = (c + x + cols) % cols;
                     int dy = (r + y + rows) % rows;
 
@@ -341,9 +338,6 @@ void gameLifeConway(bool estado[], bool dummy[], int rows, int cols)
                 }
             }
 
-            // Reglas de Conway:
-            // viva con 2 o 3 vecinos -> sigue viva
-            // muerta con exactamente 3 vecinos -> nace
             if (estado[r * cols + c])
             {
                 dummy[r * cols + c] = (vecinos == 2) || (vecinos == 3);
@@ -355,7 +349,6 @@ void gameLifeConway(bool estado[], bool dummy[], int rows, int cols)
         }
     }
 
-    // copia el resultado calculado de vuelta al tablero real
     for (int k = 0; k < rows * cols; k++)
     {
         estado[k] = dummy[k];
