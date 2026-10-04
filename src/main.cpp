@@ -4,8 +4,11 @@
   Conway's Game of Life usando raylib.
   Cada generacion del tablero se guarda en un nodo de una lista
   doblemente ligada. Permite navegar manualmente entre generaciones,
-  y tambien reproducir automaticamente con pausa y control de velocidad.
-  Incluye musica de fondo en loop.
+  reproduccion automatica con pausa y control de velocidad, y musica
+  de fondo en loop.
+
+  Diseño visual: paleta reducida, tipografia con jerarquia clara,
+  estilo sobrio tipo figura academica.
 */
 //******************************************************************************
 #include "raylib.h"
@@ -20,9 +23,24 @@
 //    Constantes del tablero (grid) del Game of Life
 //******************************************************************************
 
-const int CELL_SIZE = 10;                    // tamaño en pixeles de cada celda
-const int ROWS = 600 / CELL_SIZE;             // filas del tablero (60)
-const int COLS = 800 / CELL_SIZE;             // columnas del tablero (80)
+const int CELL_SIZE = 10;
+const int ROWS = 600 / CELL_SIZE;
+const int COLS = 800 / CELL_SIZE;
+const int HEADER_HEIGHT = 64;     // franja superior para info
+const int FOOTER_HEIGHT = 22;     // franja inferior para el pie de figura
+
+
+//******************************************************************************
+//    Paleta de colores — estilo sobrio, papel academico
+//******************************************************************************
+
+const Color COLOR_FONDO       = (Color){ 250, 250, 247, 255 };   // blanco calido, tipo papel
+const Color COLOR_CELDA       = (Color){  32,  32,  38, 255 };   // casi negro, azulado
+const Color COLOR_GRID        = (Color){ 228, 228, 222, 255 };   // lineas casi invisibles
+const Color COLOR_TEXTO       = (Color){  40,  40,  45, 255 };   // texto principal
+const Color COLOR_TEXTO_SUAVE = (Color){ 140, 140, 134, 255 };   // texto secundario / etiquetas
+const Color COLOR_ACENTO      = (Color){ 120,  24,  34, 255 };   // vino / burdeos, unico color fuerte
+const Color COLOR_LINEA       = (Color){ 210, 210, 204, 255 };   // separadores finos
 
 
 //******************************************************************************
@@ -31,9 +49,9 @@ const int COLS = 800 / CELL_SIZE;             // columnas del tablero (80)
 
 struct EstadoTablero
 {
-    bool celdas[ROWS * COLS];   // snapshot completo de esta generacion (4800 celdas)
-    int numeroEstado;           // numero de generacion (1, 2, 3, ...)
-    int poblacion;               // cuantas celdas vivas tiene esta generacion
+    bool celdas[ROWS * COLS];
+    int numeroEstado;
+    int poblacion;
 };
 
 
@@ -50,45 +68,40 @@ void gameLifeConway(bool estado[], bool dummy[], int rows, int cols);
 
 int main(void)
 {
-    // Configuracion de la ventana
     const int anchoVentana = COLS * CELL_SIZE;
     const int altoVentana  = ROWS * CELL_SIZE;
 
-    InitWindow(anchoVentana, altoVentana, "Conway's Game of Life - Lista Doblemente Ligada");
-    SetTargetFPS(60);   // 60 fps para que los controles se sientan fluidos
+    InitWindow(anchoVentana, altoVentana, "Conway's Game of Life — Lista Doblemente Ligada");
+    SetTargetFPS(60);
 
     // ------------------------------------------------------------
     // AUDIO
     // ------------------------------------------------------------
 
-    InitAudioDevice();   // prende el sistema de audio, una sola vez
+    InitAudioDevice();
 
     Music musica = LoadMusicStream("assets/musica.ogg");
-    musica.looping = true;   // que se repita sola al terminar
+    musica.looping = true;
     PlayMusicStream(musica);
 
-    bool musicaActiva = true;   // bandera para poder silenciarla con una tecla
+    bool musicaActiva = true;
 
-    // Configura el motor de numeros pseudoaleatorios
+    // Motor de numeros pseudoaleatorios
     std::random_device rd;
     std::mt19937 generador(rd());
     std::uniform_real_distribution<float> distribucion(0.0f, 1.0f);
 
-    // Crea la lista doblemente ligada que guardara las 100 generaciones
+    // Lista doblemente ligada con las 100 generaciones
     LinkedList<EstadoTablero> lista;
 
-    // Tableros de trabajo: uno guarda el estado actual, el otro es auxiliar
-    // para calcular la siguiente generacion sin pisar datos a medio calcular
     bool estadoActual[ROWS * COLS];
     bool dummy[ROWS * COLS];
 
-    // Genera el tablero inicial de forma aleatoria (generacion 1)
     for (int k = 0; k < ROWS * COLS; k++)
     {
         estadoActual[k] = distribucion(generador) > 0.75f;
     }
 
-    // Genera 100 generaciones y las va insertando en la lista
     for (int i = 0; i < 100; i++)
     {
         EstadoTablero estado;
@@ -114,12 +127,12 @@ int main(void)
     }
 
     // ------------------------------------------------------------
-    // PANTALLA DE INSTRUCCIONES (antes de iniciar la animacion)
+    // PANTALLA DE INSTRUCCIONES — estilo portada sobria
     // ------------------------------------------------------------
 
     while (!WindowShouldClose())
     {
-        UpdateMusicStream(musica);   // hay que llamarlo cada frame, siempre
+        UpdateMusicStream(musica);
 
         if (IsKeyPressed(KEY_ENTER))
         {
@@ -128,25 +141,47 @@ int main(void)
 
         BeginDrawing();
 
-            ClearBackground(RAYWHITE);
+            ClearBackground(COLOR_FONDO);
 
-            DrawText("CONWAY'S GAME OF LIFE", 190, 180, 30, BLACK);
-            DrawText("Lista doblemente ligada - 100 generaciones precalculadas", 130, 230, 16, DARKGRAY);
+            // marco delgado alrededor de toda la ventana
+            DrawRectangleLines(0, 0, anchoVentana, altoVentana, COLOR_LINEA);
 
-            DrawText("Controles:", 190, 290, 20, BLACK);
-            DrawText("Flecha derecha / izquierda  ->  avanzar / retroceder generacion", 190, 320, 16, DARKGRAY);
-            DrawText("ESPACIO                      ->  play / pausa (automatico)", 190, 342, 16, DARKGRAY);
-            DrawText("+ / -                        ->  mas rapido / mas lento", 190, 364, 16, DARKGRAY);
-            DrawText("M                            ->  silenciar / activar musica", 190, 386, 16, DARKGRAY);
-            DrawText("ESC                          ->  salir", 190, 408, 16, DARKGRAY);
+            // titulo centrado
+            int tituloAncho = MeasureText("CONWAY'S GAME OF LIFE", 28);
+            DrawText("CONWAY'S GAME OF LIFE", (anchoVentana - tituloAncho) / 2, 150, 28, COLOR_TEXTO);
 
-            DrawText("Presiona ENTER para comenzar", 220, 460, 20, MAROON);
+            int subAncho = MeasureText("Simulacion con lista doblemente ligada  —  C++ / raylib", 14);
+            DrawText("Simulacion con lista doblemente ligada  —  C++ / raylib",
+                      (anchoVentana - subAncho) / 2, 188, 14, COLOR_TEXTO_SUAVE);
+
+            // linea separadora fina
+            DrawLine(anchoVentana / 2 - 80, 220, anchoVentana / 2 + 80, 220, COLOR_LINEA);
+
+            // bloque de controles, alineado en columna
+            int xControles = anchoVentana / 2 - 170;
+            int yControles = 250;
+            int paso = 24;
+
+            DrawText("CONTROLES", xControles, yControles, 13, COLOR_ACENTO);
+            DrawText("Flecha derecha / izquierda   navegar generacion",
+                      xControles, yControles + paso * 1, 14, COLOR_TEXTO);
+            DrawText("Espacio                       reproducir / pausar",
+                      xControles, yControles + paso * 2, 14, COLOR_TEXTO);
+            DrawText("+  /  -                        velocidad",
+                      xControles, yControles + paso * 3, 14, COLOR_TEXTO);
+            DrawText("M                              musica",
+                      xControles, yControles + paso * 4, 14, COLOR_TEXTO);
+            DrawText("Esc                            salir",
+                      xControles, yControles + paso * 5, 14, COLOR_TEXTO);
+
+            int enterAncho = MeasureText("ENTER para comenzar", 16);
+            DrawText("ENTER para comenzar", (anchoVentana - enterAncho) / 2, 420, 16, COLOR_ACENTO);
 
         EndDrawing();
     }
 
     // ------------------------------------------------------------
-    // VARIABLES PARA LA SIMULACION PRINCIPAL
+    // VARIABLES DE LA SIMULACION
     // ------------------------------------------------------------
 
     Node<EstadoTablero>* actual = lista.Inicio();
@@ -165,27 +200,18 @@ int main(void)
 
     while (!WindowShouldClose())
     {
-        // La musica necesita actualizarse cada frame para seguir sonando
         UpdateMusicStream(musica);
 
-        // ------------------------------------------------------------
-        // ACTUALIZACION
-        // ------------------------------------------------------------
+        // --- entradas ---
 
-        if (IsKeyPressed(KEY_RIGHT))
+        if (IsKeyPressed(KEY_RIGHT) && actual->next != nullptr)
         {
-            if (actual->next != nullptr)
-            {
-                actual = actual->next;
-            }
+            actual = actual->next;
         }
 
-        if (IsKeyPressed(KEY_LEFT))
+        if (IsKeyPressed(KEY_LEFT) && actual->prev != nullptr)
         {
-            if (actual->prev != nullptr)
-            {
-                actual = actual->prev;
-            }
+            actual = actual->prev;
         }
 
         if (IsKeyPressed(KEY_SPACE))
@@ -196,34 +222,20 @@ int main(void)
         if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD))
         {
             velocidad -= 0.05f;
-            if (velocidad < velocidadMin)
-            {
-                velocidad = velocidadMin;
-            }
+            if (velocidad < velocidadMin) velocidad = velocidadMin;
         }
 
         if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT))
         {
             velocidad += 0.05f;
-            if (velocidad > velocidadMax)
-            {
-                velocidad = velocidadMax;
-            }
+            if (velocidad > velocidadMax) velocidad = velocidadMax;
         }
 
-        // Tecla M: silencia o reactiva la musica
         if (IsKeyPressed(KEY_M))
         {
             musicaActiva = !musicaActiva;
-
-            if (musicaActiva)
-            {
-                ResumeMusicStream(musica);
-            }
-            else
-            {
-                PauseMusicStream(musica);
-            }
+            if (musicaActiva) ResumeMusicStream(musica);
+            else PauseMusicStream(musica);
         }
 
         if (!pausado)
@@ -251,43 +263,78 @@ int main(void)
 
         BeginDrawing();
 
-            ClearBackground(RAYWHITE);
+            ClearBackground(COLOR_FONDO);
 
+            // ---------- tablero ----------
             for (int r = 0; r < ROWS; ++r)
             {
                 for (int c = 0; c < COLS; ++c)
                 {
+                    int y = HEADER_HEIGHT + r * CELL_SIZE;
+
                     if (actual->data.celdas[r * COLS + c])
                     {
-                        DrawRectangle(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE, BLACK);
+                        DrawRectangle(c * CELL_SIZE, y, CELL_SIZE, CELL_SIZE, COLOR_CELDA);
                     }
 
-                    DrawRectangleLines(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE, LIGHTGRAY);
+                    DrawRectangleLines(c * CELL_SIZE, y, CELL_SIZE, CELL_SIZE, COLOR_GRID);
                 }
             }
 
-            DrawRectangle(0, 0, anchoVentana, 70, Fade(BLACK, 0.82f));
+            // ---------- encabezado ----------
+            DrawRectangle(0, 0, anchoVentana, HEADER_HEIGHT, COLOR_FONDO);
+            DrawLine(0, HEADER_HEIGHT, anchoVentana, HEADER_HEIGHT, COLOR_LINEA);
 
-            DrawText(TextFormat("Gen %d/100", actual->data.numeroEstado),
-                      12, 10, 24, RAYWHITE);
+            // columna 1: generacion
+            DrawText("GENERACION", 16, 10, 11, COLOR_TEXTO_SUAVE);
+            DrawText(TextFormat("%03d / 100", actual->data.numeroEstado), 16, 26, 22, COLOR_TEXTO);
 
-            DrawText(TextFormat("Poblacion: %d", actual->data.poblacion),
-                      170, 16, 18, (Color){120, 220, 120, 255});
+            DrawLine(150, 12, 150, 52, COLOR_LINEA);
 
-            const char* estadoTexto = pausado ? "|| PAUSADO" : "> REPRODUCIENDO";
-            Color colorEstado = pausado ? (Color){255, 140, 140, 255} : (Color){140, 200, 255, 255};
-            DrawText(estadoTexto, 360, 16, 18, colorEstado);
+            // columna 2: poblacion
+            DrawText("POBLACION", 166, 10, 11, COLOR_TEXTO_SUAVE);
+            DrawText(TextFormat("N = %d", actual->data.poblacion), 166, 26, 20, COLOR_ACENTO);
 
+            DrawLine(300, 12, 300, 52, COLOR_LINEA);
+
+            // columna 3: estado
+            DrawText("ESTADO", 316, 10, 11, COLOR_TEXTO_SUAVE);
+            const char* textoEstado = pausado ? "PAUSADO" : "REPRODUCIENDO";
+            DrawText(textoEstado, 316, 26, 18, COLOR_TEXTO);
+            DrawCircle(316 + MeasureText(textoEstado, 18) + 14, 35, 5,
+                        pausado ? COLOR_TEXTO_SUAVE : COLOR_ACENTO);
+
+            DrawLine(500, 12, 500, 52, COLOR_LINEA);
+
+            // columna 4: velocidad
+            DrawText("VELOCIDAD", 516, 10, 11, COLOR_TEXTO_SUAVE);
             if (!pausado)
             {
-                DrawText(TextFormat("(%.2fs/gen)", velocidad), 560, 16, 16, GRAY);
+                DrawText(TextFormat("%.2f s/gen", velocidad), 516, 26, 16, COLOR_TEXTO);
+            }
+            else
+            {
+                DrawText("—", 516, 26, 16, COLOR_TEXTO_SUAVE);
             }
 
-            const char* iconoMusica = musicaActiva ? "[M] musica ON" : "[M] musica OFF";
-            DrawText(iconoMusica, 660, 16, 14, (Color){200, 200, 255, 255});
+            DrawLine(630, 12, 630, 52, COLOR_LINEA);
 
-            DrawText("FLECHAS navegar   ESPACIO play/pausa   +/- velocidad   ESC salir",
-                      12, 44, 14, (Color){170, 170, 170, 255});
+            // columna 5: musica
+            DrawText("AUDIO", 646, 10, 11, COLOR_TEXTO_SUAVE);
+            DrawText(musicaActiva ? "ON" : "OFF", 646, 26, 16,
+                       musicaActiva ? COLOR_TEXTO : COLOR_TEXTO_SUAVE);
+
+            // barra de progreso delgada, al fondo del encabezado
+            float progreso = (float)actual->data.numeroEstado / 100.0f;
+            DrawRectangle(0, HEADER_HEIGHT - 2, anchoVentana, 2, COLOR_LINEA);
+            DrawRectangle(0, HEADER_HEIGHT - 2, (int)(anchoVentana * progreso), 2, COLOR_ACENTO);
+
+            // ---------- pie de figura ----------
+            DrawRectangle(0, altoVentana - FOOTER_HEIGHT, anchoVentana, FOOTER_HEIGHT, COLOR_FONDO);
+            DrawLine(0, altoVentana - FOOTER_HEIGHT, anchoVentana, altoVentana - FOOTER_HEIGHT, COLOR_LINEA);
+
+            const char* pie = "Fig. 1 — Automata celular B3/S23 sobre malla toroidal 80 x 60";
+            DrawText(pie, 12, altoVentana - FOOTER_HEIGHT + 5, 12, COLOR_TEXTO_SUAVE);
 
         EndDrawing();
     }
