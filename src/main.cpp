@@ -1,14 +1,14 @@
 //******************************************************************************
 /*
-  main.cpp
-  Conway's Game of Life usando raylib.
+  Conway's Game of Life usando raylib
+
+
   Cada generacion del tablero se guarda en un nodo de una lista
   doblemente ligada. Permite navegar manualmente entre generaciones,
   reproduccion automatica con pausa y control de velocidad, musica
-  de fondo en loop, y animaciones de apertura y cierre.
+  de fondo en loop, y animaciones de apertura y cierree
 
-  Diseño visual: paleta reducida, tipografia con jerarquia clara,
-  estilo sobrio tipo figura academica.
+ 
 */
 //******************************************************************************
 #include "raylib.h"
@@ -33,7 +33,7 @@ const int FOOTER_HEIGHT = 22;
 
 
 //******************************************************************************
-//    Paleta de colores — estilo sobrio, papel academico
+//     estilo sobrio
 //******************************************************************************
 
 const Color COLOR_FONDO       = (Color){ 250, 250, 247, 255 };
@@ -76,13 +76,12 @@ int main(void)
     InitWindow(anchoVentana, altoVentana, "Conway's Game of Life - Lista Doblemente Ligada");
     SetTargetFPS(60);
 
-    // Desactiva el cierre automatico al presionar ESC: lo controlamos
-    // nosotros para poder reproducir la animacion de cierre antes de salir
+    // Desactiva el cierre automatico al presionar ESC: 
     SetExitKey(KEY_NULL);
 
-    // ------------------------------------------------------------
+    
     // AUDIO
-    // ------------------------------------------------------------
+    
 
     InitAudioDevice();
 
@@ -132,15 +131,14 @@ int main(void)
         gameLifeConway(estadoActual, dummy, ROWS, COLS);
     }
 
-    // Puntero de navegacion — declarado antes de la portada para que
-    // tenga datos validos incluso si el usuario sale desde ahi
+    // Puntero de navegacion  
+    
     Node<EstadoTablero>* actual = lista.Inicio();
 
-    // Bandera compartida: se vuelve true cuando el usuario pide salir (ESC)
     bool salir = false;
 
     // ------------------------------------------------------------
-    // PORTADA — con animacion de entrada en cascada
+    // PORTADA
     // ------------------------------------------------------------
 
     const int PUNTO_SEP = 28;
@@ -167,7 +165,7 @@ int main(void)
 
             ClearBackground(COLOR_FONDO);
 
-            // ---------- fondo animado: campo de puntos tipo onda ----------
+            //fondo animado
             for (int px = 0; px < anchoVentana; px += PUNTO_SEP)
             {
                 for (int py = 0; py < altoVentana; py += PUNTO_SEP)
@@ -182,7 +180,7 @@ int main(void)
                 }
             }
 
-            // ---------- titulo: fade + deslizamiento hacia arriba ----------
+            
             float alphaTitulo = std::clamp(tPortada / 0.7f, 0.0f, 1.0f);
             float offsetTitulo = (1.0f - alphaTitulo) * 18.0f;   // desliza 18px mientras aparece
 
@@ -191,7 +189,7 @@ int main(void)
                       (anchoVentana - tituloAncho) / 2, (int)(150 + offsetTitulo), 28,
                       Fade(COLOR_TEXTO, alphaTitulo));
 
-            // ---------- subtitulo: aparece un poco despues ----------
+            
             float alphaSub = std::clamp((tPortada - 0.2f) / 0.7f, 0.0f, 1.0f);
             float offsetSub = (1.0f - alphaSub) * 14.0f;
 
@@ -200,11 +198,11 @@ int main(void)
                       (anchoVentana - subAncho) / 2, (int)(188 + offsetSub), 14,
                       Fade(COLOR_TEXTO_SUAVE, alphaSub));
 
-            // linea separadora, aparece con el subtitulo
+            
             DrawLine(anchoVentana / 2 - 80, 220, anchoVentana / 2 + 80, 220,
                       Fade(COLOR_LINEA, alphaSub));
 
-            // ---------- controles: aparecen en cascada, linea por linea ----------
+            
             int xControles = anchoVentana / 2 - 170;
             int yControles = 250;
             int paso = 24;
@@ -231,7 +229,7 @@ int main(void)
                           Fade(colorLinea, alphaLinea));
             }
 
-            // ---------- "ENTER para comenzar": aparece al final, con parpadeo ----------
+            
             if (tPortada > 1.1f)
             {
                 float alphaEnter = std::clamp((tPortada - 1.1f) / 0.4f, 0.0f, 1.0f);
@@ -262,7 +260,7 @@ int main(void)
     {
         UpdateMusicStream(musica);
 
-        // --- entradas ---
+        
 
         if (IsKeyPressed(KEY_RIGHT) && actual->next != nullptr)
         {
@@ -396,10 +394,7 @@ int main(void)
     }
 
     // ------------------------------------------------------------
-    // CIERRE — fade a oscuro, musica baja de volumen, resumen final
-    // Solo se reproduce si el usuario salio con ESC (salir == true).
-    // Si cerro con la X de la ventana, WindowShouldClose() ya es true
-    // y este bloque se salta solo (cierre inmediato, comportamiento normal).
+    // CIERRE 
     // ------------------------------------------------------------
 
     float tiempoCierre = 0.0f;
@@ -422,7 +417,7 @@ int main(void)
             // overlay oscuro que va cubriendo la pantalla
             DrawRectangle(0, 0, anchoVentana, altoVentana, Fade(COLOR_TEXTO, t * 0.94f));
 
-            // el texto final aparece despues de que ya oscurecio bastante
+            
             if (t > 0.35f)
             {
                 float tTexto = std::clamp((t - 0.35f) / 0.65f, 0.0f, 1.0f);

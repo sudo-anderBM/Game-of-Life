@@ -4,10 +4,10 @@
   Usa el Node<T> definido en Node.h (con punteros next y prev)
 */
 
-#ifndef _LISTA_HPP   // include guard: evita que este archivo se procese dos veces
+#ifndef _LISTA_HPP   /
 #define _LISTA_HPP
 
-#include "Node.h"     // trae la definicion de Node<T> (data, next, prev)
+#include "Node.h"     
 
 
 //******************************************************************************
@@ -37,6 +37,6 @@ class LinkedList
         void eliminarLista();
 };
 
-#include "lista.cpp"   // AL FINAL, despues de cerrar la clase (necesario por ser template)
+#include "lista.cpp"   
 
 #endif
